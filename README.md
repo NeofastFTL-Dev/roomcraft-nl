@@ -212,9 +212,11 @@ gh secret set ANDROID_KEY_ALIAS
 gh secret set ANDROID_KEY_PASSWORD
 ```
 
-Zonder die secrets maakt de autobuild een tijdelijke sleutel, zodat de build
-blijft werken; zo'n APK kun je niet in-place bijwerken. Een eigen keystore maak
-je met:
+Ontbreken die secrets, dan **faalt** de build: een release-APK moet altijd met
+de vaste releasesleutel zijn ondertekend, anders is hij later niet in-place bij
+te werken. Alleen een push naar de `android`-branch (een proefbuild, geen
+release) gebruikt bij ontbrekende secrets een tijdelijke sleutel en meldt dat
+als waarschuwing. Een eigen keystore maak je met:
 
 ```bash
 keytool -genkeypair -keystore release.keystore -storetype PKCS12 \

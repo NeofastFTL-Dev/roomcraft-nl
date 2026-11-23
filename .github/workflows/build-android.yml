@@ -51,11 +51,16 @@ jobs:
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
       - name: Prepare the release signing key
+        id: signing
         env:
           KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          # Alleen een push naar deze branch is een proefbuild. Een release
+          # (workflow_call vanuit release-all.yml) moet altijd met de echte
+          # releasesleutel worden ondertekend.
+          ALLOW_TEMPORARY_KEY: ${{ github.event_name == 'push' && github.ref == 'refs/heads/android' }}
         run: |
           set -euo pipefail
           keystore="$RUNNER_TEMP/roomcraft-release.keystore"
@@ -68,8 +73,9 @@ jobs:
             echo "ANDROID_KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
             echo "ANDROID_KEY_ALIAS=$KEY_ALIAS" >> "$GITHUB_ENV"
             echo "ANDROID_KEY_PASSWORD=${KEY_PASSWORD:-$KEYSTORE_PASSWORD}" >> "$GITHUB_ENV"
+            echo "source=secrets" >> "$GITHUB_OUTPUT"
             echo "::notice::Release-APK ondertekend met de keystore uit de repository-secrets."
-          else
+          elif [[ "${ALLOW_TEMPORARY_KEY}" == "true" ]]; then
             password="$(openssl rand -hex 24)"
             keytool -genkeypair -keystore "$keystore" -storetype PKCS12 \
               -alias roomcraft -keyalg RSA -keysize 3072 -validity 10000 \
@@ -78,7 +84,11 @@ jobs:
             echo "ANDROID_KEYSTORE_PASSWORD=$password" >> "$GITHUB_ENV"
             echo "ANDROID_KEY_ALIAS=roomcraft" >> "$GITHUB_ENV"
             echo "ANDROID_KEY_PASSWORD=$password" >> "$GITHUB_ENV"
-            echo "::warning::Geen ANDROID_KEYSTORE_BASE64-secret: deze APK is met een tijdelijke sleutel ondertekend en kan niet in-place worden bijgewerkt. Voeg de vier Android-secrets toe (zie README)."
+            echo "source=temporary" >> "$GITHUB_OUTPUT"
+            echo "::warning::Geen Android-secrets: deze proefbuild van de android-branch is met een tijdelijke sleutel ondertekend en kan niet in-place worden bijgewerkt. Een release weigert zonder secrets."
+          else
+            echo "::error::De Android-secrets ontbreken (ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD). Een release-APK moet met de vaste releasesleutel zijn ondertekend, anders kun je hem later niet in-place bijwerken. Zet de secrets (zie README) en start de release opnieuw."
+            exit 1
           fi
           echo "ANDROID_KEYSTORE_PATH=$keystore" >> "$GITHUB_ENV"
 
@@ -92,8 +102,15 @@ jobs:
             -PversionCode="${GITHUB_RUN_NUMBER}"
 
       - name: Check that the APK is a signed release build
+        env:
+          SIGNING_SOURCE: ${{ steps.signing.outputs.source }}
+          ALLOW_TEMPORARY_KEY: ${{ github.event_name == 'push' && github.ref == 'refs/heads/android' }}
         run: |
           set -euo pipefail
+          if [[ "$SIGNING_SOURCE" != "secrets" && "$ALLOW_TEMPORARY_KEY" != "true" ]]; then
+            echo "De APK is niet met de releasesleutel ondertekend; een release mag geen tijdelijke sleutel gebruiken." >&2
+            exit 1
+          fi
           apk="$(ls android/app/build/outputs/apk/release/app-release*.apk | head -n 1)"
           build_tools="$(ls -d "${ANDROID_HOME:-${ANDROID_SDK_ROOT}}"/build-tools/* | sort -V | tail -n 1)"
           "$build_tools/apksigner" verify --print-certs "$apk"
