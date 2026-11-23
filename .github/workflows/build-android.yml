@@ -101,10 +101,14 @@ jobs:
             -PversionName="$VERSION" \
             -PversionCode="${GITHUB_RUN_NUMBER}"
 
-      - name: Check that the APK is a signed release build
+      - name: Check that the APK is signed with the release key
         env:
           SIGNING_SOURCE: ${{ steps.signing.outputs.source }}
           ALLOW_TEMPORARY_KEY: ${{ github.event_name == 'push' && github.ref == 'refs/heads/android' }}
+          # Vingerafdruk van het release-certificaat. Een APK met een andere
+          # sleutel kan niet in-place worden bijgewerkt, dus dit is een harde
+          # eis. Na het wisselen van de sleutel moet deze waarde mee veranderen.
+          EXPECTED_CERT_SHA256: 'B8:17:7B:CA:27:7D:E8:F0:0B:06:19:80:CB:E3:F6:7C:A5:FC:9E:4D:83:2F:D9:C3:74:00:F6:50:72:AD:78:E0'
         run: |
           set -euo pipefail
           if [[ "$SIGNING_SOURCE" != "secrets" && "$ALLOW_TEMPORARY_KEY" != "true" ]]; then
@@ -113,11 +117,30 @@ jobs:
           fi
           apk="$(ls android/app/build/outputs/apk/release/app-release*.apk | head -n 1)"
           build_tools="$(ls -d "${ANDROID_HOME:-${ANDROID_SDK_ROOT}}"/build-tools/* | sort -V | tail -n 1)"
-          "$build_tools/apksigner" verify --print-certs "$apk"
+          certs="$("$build_tools/apksigner" verify --print-certs "$apk")"
+          echo "$certs"
           if "$build_tools/aapt" dump badging "$apk" | grep -q 'application-debuggable'; then
             echo "De APK is debuggable; dat hoort niet in een release." >&2
             exit 1
           fi
+          # Alleen een proefbuild van de branch ondertekent met een tijdelijke
+          # sleutel; die heeft per definitie een andere vingerafdruk.
+          if [[ "$SIGNING_SOURCE" != "secrets" ]]; then
+            echo "::warning::Proefbuild met een tijdelijke sleutel: vingerafdruk niet vergeleken."
+            exit 0
+          fi
+          normalize() { tr 'A-F' 'a-f' | tr -d ':' ; }
+          expected="$(printf '%s' "$EXPECTED_CERT_SHA256" | normalize)"
+          actual="$(printf '%s\n' "$certs" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -n 1 | normalize)"
+          if [[ -z "$actual" ]]; then
+            echo "Geen SHA-256-vingerafdruk in de apksigner-uitvoer gevonden." >&2
+            exit 1
+          fi
+          if [[ "$actual" != "$expected" ]]; then
+            echo "::error::De APK is met een andere sleutel ondertekend dan de releasesleutel. Verwacht $EXPECTED_CERT_SHA256, gevonden $actual. Een APK met een andere sleutel kan niet in-place worden bijgewerkt." >&2
+            exit 1
+          fi
+          echo "::notice::APK-vingerafdruk komt overeen met de releasesleutel ($actual)."
 
       - name: Name the APK
         env:

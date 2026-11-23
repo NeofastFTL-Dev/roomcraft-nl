@@ -214,7 +214,10 @@ gh secret set ANDROID_KEY_PASSWORD
 
 Ontbreken die secrets, dan **faalt** de build: een release-APK moet altijd met
 de vaste releasesleutel zijn ondertekend, anders is hij later niet in-place bij
-te werken. Alleen een push naar de `android`-branch (een proefbuild, geen
+te werken. De autobuild vergelijkt daarnaast de SHA-256-vingerafdruk van het
+APK-certificaat met de vaste waarde `EXPECTED_CERT_SHA256` in
+`.github/workflows/build-android.yml` en faalt bij een andere sleutel. Wissel je
+van keystore, werk dan die vingerafdruk mee bij. Alleen een push naar de `android`-branch (een proefbuild, geen
 release) gebruikt bij ontbrekende secrets een tijdelijke sleutel en meldt dat
 als waarschuwing. Een eigen keystore maak je met:
 
