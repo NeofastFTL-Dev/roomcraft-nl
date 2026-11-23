@@ -63,6 +63,10 @@ jobs:
         run: |
           set -euo pipefail
           npm ci --no-audit --no-fund
+          # The typecheck needs the generated Prisma client; the server is not
+          # part of the APK, but `npm run build` checks it too.
+          DATABASE_URL="postgresql://roomcraft:roomcraft@127.0.0.1:5432/roomcraft?schema=public" \
+            npx prisma generate
           npm run build
           rm -rf android/app/src/main/assets/web
           mkdir -p android/app/src/main/assets
