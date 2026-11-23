@@ -3,11 +3,6 @@ name: Build Android
 on:
   push:
     branches: [android]
-    tags: ['v*']
-  workflow_dispatch:
-
-permissions:
-  contents: write
 
 concurrency:
   group: build-android-${{ github.ref }}
@@ -32,11 +27,7 @@ jobs:
         id: version
         run: |
           set -euo pipefail
-          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
-            version="${GITHUB_REF#refs/tags/v}"
-          else
-            version="$(node -p "require('./package.json').version")-dev.${GITHUB_RUN_NUMBER}"
-          fi
+          version="$(node -p "require('./package.json').version")-dev.${GITHUB_RUN_NUMBER}"
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
       - name: Build the APK
@@ -61,10 +52,3 @@ jobs:
           name: RoomCraft-NL-${{ steps.version.outputs.version }}-android
           path: RoomCraft-NL-${{ steps.version.outputs.version }}-android.apk
           if-no-files-found: error
-
-      - name: Publish release
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: RoomCraft-NL-${{ steps.version.outputs.version }}-android.apk
-          generate_release_notes: true
