@@ -63,6 +63,9 @@ jobs:
         run: |
           set -euo pipefail
           npm ci --no-audit --no-fund
+          # Guards the offline store: a save must wait for the IndexedDB commit,
+          # otherwise a project can disappear right after a reload.
+          npm test
           # The typecheck needs the generated Prisma client; the server is not
           # part of the APK, but `npm run build` checks it too.
           DATABASE_URL="postgresql://roomcraft:roomcraft@127.0.0.1:5432/roomcraft?schema=public" \

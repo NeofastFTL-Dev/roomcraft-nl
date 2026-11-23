@@ -19,6 +19,15 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), semantic versi
   shop list now lives in `shared/retailers.ts`, shared by the server and the
   offline app; each stays `niet gekoppeld` until a product feed is configured.
 
+### Fixed
+
+* **Saving in the Android app waits for the IndexedDB commit.** The app used to
+  report "opgeslagen" as soon as the write request succeeded, while the
+  transaction was still open; reloading or closing the app right after could
+  abort it and the new project was gone. Projects, versions and thumbnails now
+  survive reloads and restarts, and a unit test fails if a save resolves before
+  the commit again.
+
 ## [1.0.0] — 2026-11-20
 
 First complete, runnable build of RoomCraft NL.

@@ -84,7 +84,12 @@ function openDatabase(): Promise<IDBDatabase> {
           db.createObjectStore('versions', { keyPath: 'id' });
         }
       };
-      request.onsuccess = () => resolve(request.result);
+      request.onsuccess = () => {
+        // Best effort: ask the WebView to keep this origin's data on disk, so a
+        // restart does not lose designs to storage eviction. Denied is fine.
+        if (typeof navigator !== 'undefined') void navigator.storage?.persist?.().catch(() => {});
+        resolve(request.result);
+      };
       request.onerror = () => reject(request.error ?? new Error('Opslag openen mislukt.'));
     });
     // A failed open (private mode, storage full) can be retried on the next call.
@@ -105,8 +110,20 @@ function query<T>(
       new Promise<T>((resolve, reject) => {
         const transaction = db.transaction(storeName, mode);
         const request = action(transaction.objectStore(storeName));
-        request.onsuccess = () => resolve(request.result as T);
+        let result!: T;
+
+        request.onsuccess = () => {
+          result = request.result as T;
+        };
         request.onerror = () => reject(request.error ?? new Error('Lezen of schrijven mislukt.'));
+
+        // A write is only durable once its transaction commits. Resolving on
+        // `request.onsuccess` reports success while the transaction is still
+        // open, so closing or reloading the app right after can abort it and
+        // the project is gone. Resolve on commit (or reject on abort) instead.
+        transaction.oncomplete = () => resolve(result);
+        transaction.onerror = () =>
+          reject(transaction.error ?? request.error ?? new Error('Opslaan op dit apparaat mislukt.'));
         transaction.onabort = () =>
           reject(transaction.error ?? new Error('Opslaan op dit apparaat mislukt.'));
       }),
