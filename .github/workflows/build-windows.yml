@@ -3,9 +3,16 @@ name: Build Windows
 on:
   push:
     branches: [windows]
+  workflow_call:
+    inputs:
+      version:
+        description: 'Versie (leeg = <package.json>-dev.<run_number>)'
+        type: string
+        required: false
+        default: ''
 
 concurrency:
-  group: build-windows-${{ github.ref }}
+  group: build-windows-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -13,6 +20,8 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: windows
 
       - uses: actions/setup-node@v4
         with:
@@ -22,9 +31,15 @@ jobs:
       - name: Determine version
         id: version
         shell: pwsh
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
         run: |
           $package = Get-Content package.json -Raw | ConvertFrom-Json
-          $version = "$($package.version)-dev.$env:GITHUB_RUN_NUMBER"
+          if ($env:INPUT_VERSION) {
+            $version = $env:INPUT_VERSION
+          } else {
+            $version = "$($package.version)-dev.$env:GITHUB_RUN_NUMBER"
+          }
           if ($version -notmatch '^\d+\.\d+\.\d+') { throw "Ongeldige versie: $version" }
           "version=$version" >> $env:GITHUB_OUTPUT
           npm version $version --no-git-tag-version --allow-same-version | Out-Null
