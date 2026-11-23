@@ -22,3 +22,8 @@ android/local.properties
 android/app/build/
 *.apk
 *.aab
+
+# Android signing keys (nooit committen)
+*.keystore
+*.jks
+keys/
