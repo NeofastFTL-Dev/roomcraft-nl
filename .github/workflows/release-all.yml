@@ -1,0 +1,280 @@
+name: Release all platforms
+
+# Startpunt voor elke release. Een tag v* op main bouwt de vier
+# platformbranches en zet alle pakketten in één release; handmatig starten
+# kan met "Run workflow". De workflows op de platformbranches draaien alleen
+# bij een push naar hun eigen branch en leveren dan een artifact.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Versie (leeg = <package.json>-dev.<run_number>)'
+        required: false
+        default: ''
+      publish:
+        description: 'GitHub-release met alle vier de pakketten maken'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-all-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  windows:
+    name: Windows
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: windows
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Determine version
+        id: version
+        shell: pwsh
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          $package = Get-Content package.json -Raw | ConvertFrom-Json
+          if ($env:GITHUB_REF -like 'refs/tags/v*') {
+            $version = $env:GITHUB_REF.Substring('refs/tags/v'.Length)
+          } elseif ($env:INPUT_VERSION) {
+            $version = $env:INPUT_VERSION
+          } else {
+            $version = "$($package.version)-dev.$env:GITHUB_RUN_NUMBER"
+          }
+          if ($version -notmatch '^\d+\.\d+\.\d+') { throw "Ongeldige versie: $version" }
+          "version=$version" >> $env:GITHUB_OUTPUT
+          npm version $version --no-git-tag-version --allow-same-version | Out-Null
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Download Electron runtime
+        run: node node_modules/electron/install.js
+
+      - name: Generate Prisma client
+        env:
+          DATABASE_URL: postgresql://roomcraft:roomcraft@127.0.0.1:5432/roomcraft?schema=public
+        run: npx prisma generate
+
+      - name: Build installer
+        run: node installer/build-installer.mjs
+
+      - name: Name installer
+        id: package
+        shell: pwsh
+        run: |
+          $asset = "RoomCraft-NL-${{ steps.version.outputs.version }}-windows-setup.exe"
+          Move-Item "installer/out/RoomCraft NL Setup.exe" "installer/out/$asset"
+          "asset=$asset" >> $env:GITHUB_OUTPUT
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RoomCraft-NL-${{ steps.version.outputs.version }}-windows
+          path: installer/out/${{ steps.package.outputs.asset }}
+          if-no-files-found: error
+
+  macos:
+    name: macOS
+    runs-on: macos-latest
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: macos
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Determine version
+        id: version
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            version="${GITHUB_REF#refs/tags/v}"
+          elif [[ -n "${INPUT_VERSION:-}" ]]; then
+            version="$INPUT_VERSION"
+          else
+            version="$(node -p "require('./package.json').version")-dev.${GITHUB_RUN_NUMBER}"
+          fi
+          npm version "$version" --no-git-tag-version --allow-same-version > /dev/null
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Stage the desktop runtime
+        run: node desktop/prepare-desktop.mjs
+
+      - name: Smoke-test the launcher
+        env:
+          ROOMCRAFT_DATA: ${{ runner.temp }}/roomcraft-data
+        run: ./runtime/node/bin/node desktop/staging/app/desktop/launch.mjs --check
+
+      - name: Build the macOS packages
+        run: npx electron-builder --mac --publish never
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RoomCraft-NL-${{ steps.version.outputs.version }}-macos
+          path: |
+            release/*.dmg
+            release/*.zip
+          if-no-files-found: error
+
+  linux:
+    name: Linux
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: linux
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Determine version
+        id: version
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            version="${GITHUB_REF#refs/tags/v}"
+          elif [[ -n "${INPUT_VERSION:-}" ]]; then
+            version="$INPUT_VERSION"
+          else
+            version="$(node -p "require('./package.json').version")-dev.${GITHUB_RUN_NUMBER}"
+          fi
+          npm version "$version" --no-git-tag-version --allow-same-version > /dev/null
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Stage the desktop runtime
+        run: node desktop/prepare-desktop.mjs
+
+      - name: Smoke-test the launcher
+        env:
+          ROOMCRAFT_DATA: ${{ runner.temp }}/roomcraft-data
+        run: ./runtime/node/bin/node desktop/staging/app/desktop/launch.mjs --check
+
+      - name: Build the Linux packages
+        run: npx electron-builder --linux --publish never
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RoomCraft-NL-${{ steps.version.outputs.version }}-linux
+          path: release/*.AppImage
+          if-no-files-found: error
+
+  android:
+    name: Android
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: android
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+
+      - name: Determine version
+        id: version
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            version="${GITHUB_REF#refs/tags/v}"
+          elif [[ -n "${INPUT_VERSION:-}" ]]; then
+            version="$INPUT_VERSION"
+          else
+            version="$(node -p "require('./package.json').version")-dev.${GITHUB_RUN_NUMBER}"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Build the APK
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          gradle -p android assembleDebug \
+            -PversionName="$VERSION" \
+            -PversionCode="${GITHUB_RUN_NUMBER}"
+
+      - name: Name the APK
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          cp android/app/build/outputs/apk/debug/app-debug.apk \
+            "RoomCraft-NL-${VERSION}-android.apk"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RoomCraft-NL-${{ steps.version.outputs.version }}-android
+          path: RoomCraft-NL-${{ steps.version.outputs.version }}-android.apk
+          if-no-files-found: error
+
+  release:
+    name: Release
+    needs: [windows, macos, linux, android]
+    if: startsWith(github.ref, 'refs/tags/v') || inputs.publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Determine version
+        id: version
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            version="${GITHUB_REF#refs/tags/v}"
+          elif [[ -n "${INPUT_VERSION:-}" ]]; then
+            version="$INPUT_VERSION"
+          else
+            version="$(node -p "require('./package.json').version")-dev.${GITHUB_RUN_NUMBER}"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          name: RoomCraft NL ${{ steps.version.outputs.version }}
+          files: dist/*
+          generate_release_notes: true
