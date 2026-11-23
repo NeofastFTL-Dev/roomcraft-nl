@@ -50,22 +50,65 @@ jobs:
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
-      - name: Build the APK
+      - name: Prepare the release signing key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          keystore="$RUNNER_TEMP/roomcraft-release.keystore"
+          if [[ -n "${KEYSTORE_BASE64:-}" ]]; then
+            if [[ -z "${KEYSTORE_PASSWORD:-}" || -z "${KEY_ALIAS:-}" ]]; then
+              echo "ANDROID_KEYSTORE_BASE64 is ingesteld, maar ANDROID_KEYSTORE_PASSWORD of ANDROID_KEY_ALIAS ontbreekt." >&2
+              exit 1
+            fi
+            printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$keystore"
+            echo "ANDROID_KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
+            echo "ANDROID_KEY_ALIAS=$KEY_ALIAS" >> "$GITHUB_ENV"
+            echo "ANDROID_KEY_PASSWORD=${KEY_PASSWORD:-$KEYSTORE_PASSWORD}" >> "$GITHUB_ENV"
+            echo "::notice::Release-APK ondertekend met de keystore uit de repository-secrets."
+          else
+            password="$(openssl rand -hex 24)"
+            keytool -genkeypair -keystore "$keystore" -storetype PKCS12 \
+              -alias roomcraft -keyalg RSA -keysize 3072 -validity 10000 \
+              -storepass "$password" -keypass "$password" \
+              -dname "CN=RoomCraft NL, O=RoomCraft NL, C=NL" > /dev/null
+            echo "ANDROID_KEYSTORE_PASSWORD=$password" >> "$GITHUB_ENV"
+            echo "ANDROID_KEY_ALIAS=roomcraft" >> "$GITHUB_ENV"
+            echo "ANDROID_KEY_PASSWORD=$password" >> "$GITHUB_ENV"
+            echo "::warning::Geen ANDROID_KEYSTORE_BASE64-secret: deze APK is met een tijdelijke sleutel ondertekend en kan niet in-place worden bijgewerkt. Voeg de vier Android-secrets toe (zie README)."
+          fi
+          echo "ANDROID_KEYSTORE_PATH=$keystore" >> "$GITHUB_ENV"
+
+      - name: Build the release APK
         env:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           set -euo pipefail
-          gradle -p android assembleDebug \
+          gradle -p android assembleRelease \
             -PversionName="$VERSION" \
-            -PversionCode="$GITHUB_RUN_NUMBER"
+            -PversionCode="${GITHUB_RUN_NUMBER}"
+
+      - name: Check that the APK is a signed release build
+        run: |
+          set -euo pipefail
+          apk="$(ls android/app/build/outputs/apk/release/app-release*.apk | head -n 1)"
+          build_tools="$(ls -d "${ANDROID_HOME:-${ANDROID_SDK_ROOT}}"/build-tools/* | sort -V | tail -n 1)"
+          "$build_tools/apksigner" verify --print-certs "$apk"
+          if "$build_tools/aapt" dump badging "$apk" | grep -q 'application-debuggable'; then
+            echo "De APK is debuggable; dat hoort niet in een release." >&2
+            exit 1
+          fi
 
       - name: Name the APK
         env:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           set -euo pipefail
-          cp android/app/build/outputs/apk/debug/app-debug.apk \
-            "RoomCraft-NL-${VERSION}-android.apk"
+          apk="$(ls android/app/build/outputs/apk/release/app-release*.apk | head -n 1)"
+          cp "$apk" "RoomCraft-NL-${VERSION}-android.apk"
 
       - uses: actions/upload-artifact@v4
         with:

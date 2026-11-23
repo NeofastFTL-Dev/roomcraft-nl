@@ -185,10 +185,46 @@ Zie `installer/README.md` voor details en de stille installatie (`/S`).
 ## Android-pakket (branch `android`)
 
 De planner zelf draait op de computer (PostgreSQL + Express); de Android-app is
-de client. `gradle -p android assembleDebug` bouwt de APK. Bij de eerste start
-vul je het adres van de RoomCraft-server in (bijvoorbeeld
-`http://192.168.1.20:41731`); dat adres wordt onthouden en is via het menu te
-wijzigen. De autobuild uploadt `RoomCraft-NL-<versie>-android.apk`.
+de client. Bij de eerste start vul je het adres van de RoomCraft-server in
+(bijvoorbeeld `http://192.168.1.20:41731`); dat adres wordt onthouden en is via
+het menu te wijzigen.
+
+`gradle -p android assembleRelease` bouwt de ondertekende release-APK
+(`android/app/build/outputs/apk/release/app-release.apk`); de autobuild uploadt
+hem als `RoomCraft-NL-<versie>-android.apk`. Er worden geen debug-APK's meer
+uitgebracht.
+
+### Ondertekening
+
+De release-APK wordt ondertekend met de keystore uit vier repository-secrets:
+
+| Secret | Inhoud |
+| --- | --- |
+| `ANDROID_KEYSTORE_BASE64` | de keystore (PKCS12 of JKS) als base64 |
+| `ANDROID_KEYSTORE_PASSWORD` | het wachtwoord van de keystore |
+| `ANDROID_KEY_ALIAS` | de alias van de sleutel in de keystore |
+| `ANDROID_KEY_PASSWORD` | het wachtwoord van de sleutel (meestal gelijk aan het keystore-wachtwoord) |
+
+```bash
+gh secret set ANDROID_KEYSTORE_BASE64 < <(base64 -w0 release.keystore)
+gh secret set ANDROID_KEYSTORE_PASSWORD
+gh secret set ANDROID_KEY_ALIAS
+gh secret set ANDROID_KEY_PASSWORD
+```
+
+Zonder die secrets maakt de autobuild een tijdelijke sleutel, zodat de build
+blijft werken; zo'n APK kun je niet in-place bijwerken. Een eigen keystore maak
+je met:
+
+```bash
+keytool -genkeypair -keystore release.keystore -storetype PKCS12 \
+  -alias roomcraft -keyalg RSA -keysize 3072 -validity 10000 \
+  -dname "CN=RoomCraft NL, O=RoomCraft NL, C=NL"
+```
+
+Lokaal met dezelfde sleutel bouwen: zet `ANDROID_KEYSTORE_PATH`,
+`ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` en `ANDROID_KEY_PASSWORD` vóór
+`gradle -p android assembleRelease`.
 
 ## Winkels koppelen
 

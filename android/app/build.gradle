@@ -5,6 +5,14 @@ plugins {
 def roomcraftVersionName = (findProperty('versionName') ?: '1.0.0').toString()
 def roomcraftVersionCode = (findProperty('versionCode') ?: '1').toInteger()
 
+// De release-APK wordt ondertekend met een echte releasesleutel uit de omgeving:
+// ANDROID_KEYSTORE_PATH, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS en
+// ANDROID_KEY_PASSWORD. Zonder die variabelen levert assembleRelease een
+// ongeondertekende APK op; de autobuild zorgt altijd voor een sleutel.
+def roomcraftKeystorePath = System.getenv('ANDROID_KEYSTORE_PATH')
+def roomcraftKeystore = roomcraftKeystorePath ? file(roomcraftKeystorePath) : null
+def roomcraftSignsRelease = roomcraftKeystore != null && roomcraftKeystore.exists()
+
 android {
     namespace 'nl.roomcraft.app'
     compileSdk 35
@@ -18,12 +26,23 @@ android {
         versionName roomcraftVersionName
     }
 
+    signingConfigs {
+        release {
+            if (roomcraftSignsRelease) {
+                storeFile roomcraftKeystore
+                storePassword System.getenv('ANDROID_KEYSTORE_PASSWORD')
+                keyAlias System.getenv('ANDROID_KEY_ALIAS')
+                keyPassword System.getenv('ANDROID_KEY_PASSWORD')
+            }
+        }
+    }
+
     buildTypes {
         release {
             minifyEnabled false
-            // The autobuild ships an installable APK, so sign release with the
-            // debug key instead of requiring a keystore.
-            signingConfig signingConfigs.debug
+            if (roomcraftSignsRelease) {
+                signingConfig signingConfigs.release
+            }
         }
     }
 

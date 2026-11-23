@@ -22,3 +22,7 @@ android/local.properties
 android/app/build/
 *.apk
 *.aab
+
+# Android signing keys
+*.keystore
+*.jks
