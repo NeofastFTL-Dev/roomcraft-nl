@@ -1,0 +1,71 @@
+name: Build Windows
+
+on:
+  push:
+    branches: [windows]
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-windows-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Determine version
+        id: version
+        shell: pwsh
+        run: |
+          $package = Get-Content package.json -Raw | ConvertFrom-Json
+          if ($env:GITHUB_REF -like 'refs/tags/v*') {
+            $version = $env:GITHUB_REF.Substring('refs/tags/v'.Length)
+          } else {
+            $version = "$($package.version)-dev.$env:GITHUB_RUN_NUMBER"
+          }
+          if ($version -notmatch '^\d+\.\d+\.\d+') { throw "Ongeldige versie: $version" }
+          "version=$version" >> $env:GITHUB_OUTPUT
+          npm version $version --no-git-tag-version --allow-same-version | Out-Null
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Generate Prisma client
+        env:
+          DATABASE_URL: postgresql://roomcraft:roomcraft@127.0.0.1:5432/roomcraft?schema=public
+        run: npx prisma generate
+
+      - name: Build installer
+        run: node installer/build-installer.mjs
+
+      - name: Name installer
+        id: package
+        shell: pwsh
+        run: |
+          $asset = "RoomCraft-NL-${{ steps.version.outputs.version }}-windows-setup.exe"
+          Move-Item "installer/out/RoomCraft NL Setup.exe" "installer/out/$asset"
+          "asset=$asset" >> $env:GITHUB_OUTPUT
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RoomCraft-NL-${{ steps.version.outputs.version }}-windows
+          path: installer/out/${{ steps.package.outputs.asset }}
+          if-no-files-found: error
+
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: installer/out/${{ steps.package.outputs.asset }}
+          generate_release_notes: true

@@ -111,7 +111,9 @@ async function main() {
   fs.writeFileSync(path.join(appDir, 'prisma', 'schema.sql'), schemaSql());
 
   console.log('[installer] Node.js-runtime kopieren');
-  copy('C:\\Program Files\\nodejs\\node.exe', path.join(staging, 'node', 'node.exe'));
+  // process.execPath is the Node that runs this build (the setup-node tool
+  // cache on CI, the system Node locally); node.exe is self-contained on Windows.
+  copy(process.execPath, path.join(staging, 'node', 'node.exe'));
   await nodeLicense();
 
   console.log('[installer] PostgreSQL-binaries kopieren');
