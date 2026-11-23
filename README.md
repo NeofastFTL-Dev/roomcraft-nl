@@ -17,7 +17,7 @@ platformbranch voegt het pakket en de autobuild voor dat platform toe.
 | `main` | alleen de broncode (geen pakket) | — |
 | `windows` | `RoomCraft NL Setup.exe` (Windows 10/11, x64) | `build-windows.yml` |
 | `macos` | `.dmg` + `.zip` (macOS, Apple Silicon) | `build-macos.yml` |
-| `linux` | `.AppImage` + `.tar.gz` (Linux, x64) | `build-linux.yml` |
+| `linux` | `.AppImage` (Linux, x64) | `build-linux.yml` |
 | `android` | `.apk` (RoomCraft-client voor een RoomCraft-server) | `build-android.yml` |
 
 Elke workflow draait bij een push naar zijn eigen branch en via *Run workflow*.
