@@ -3,11 +3,6 @@ name: Build Linux
 on:
   push:
     branches: [linux]
-    tags: ['v*']
-  workflow_dispatch:
-
-permissions:
-  contents: write
 
 concurrency:
   group: build-linux-${{ github.ref }}
@@ -28,11 +23,7 @@ jobs:
         id: version
         run: |
           set -euo pipefail
-          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
-            version="${GITHUB_REF#refs/tags/v}"
-          else
-            version="$(node -p "require('./package.json').version")-dev.${GITHUB_RUN_NUMBER}"
-          fi
+          version="$(node -p "require('./package.json').version")-dev.${GITHUB_RUN_NUMBER}"
           npm version "$version" --no-git-tag-version --allow-same-version > /dev/null
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
@@ -55,10 +46,3 @@ jobs:
           name: RoomCraft-NL-${{ steps.version.outputs.version }}-linux
           path: release/*.AppImage
           if-no-files-found: error
-
-      - name: Publish release
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: release/*.AppImage
-          generate_release_notes: true
