@@ -10,6 +10,11 @@ on:
         type: string
         required: false
         default: ''
+      ref:
+        description: 'Commit om te bouwen (leeg = de branch waarop dit draait)'
+        type: string
+        required: false
+        default: ''
 
 concurrency:
   group: build-macos-${{ github.workflow }}-${{ github.ref }}
@@ -23,7 +28,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: macos
+          ref: ${{ inputs.ref || 'macos' }}
 
       - uses: actions/setup-node@v4
         with:

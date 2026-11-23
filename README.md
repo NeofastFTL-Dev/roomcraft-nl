@@ -29,6 +29,10 @@ Alle releases komen van `main`, via `release-all.yml`:
   release met dezelfde naam; zonder *version* is de versie
   `<package.json>-dev.<run_number>`.
 
+Elke release legt eerst de commit van elke platformbranch vast en bouwt precies
+die commits; `release-all.yml` noemt de vier SHA's in de release-opmerkingen,
+zodat je ziet welke code in een versie zit.
+
 De workflows op de platformbranches zijn herbruikbaar: `release-all.yml` roept
 ze aan met `uses: …/build-windows.yml@windows` (enzovoort), dus elke build
 bestaat maar één keer en de versie wordt één keer op `main` bepaald. Ze
