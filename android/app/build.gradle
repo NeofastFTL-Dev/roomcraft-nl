@@ -2,6 +2,9 @@ plugins {
     id 'com.android.application'
 }
 
+def roomcraftVersionName = (findProperty('versionName') ?: '1.0.0').toString()
+def roomcraftVersionCode = (findProperty('versionCode') ?: '1').toInteger()
+
 android {
     namespace 'nl.roomcraft.app'
     compileSdk 35
@@ -11,8 +14,8 @@ android {
         applicationId 'nl.roomcraft.app'
         minSdk 24
         targetSdk 35
-        versionCode (findProperty('versionCode') ?: '1').toInteger()
-        versionName (findProperty('versionName') ?: '1.0.0').toString()
+        versionCode roomcraftVersionCode
+        versionName roomcraftVersionName
     }
 
     buildTypes {
