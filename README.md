@@ -14,16 +14,25 @@ platformbranch voegt het pakket en de autobuild voor dat platform toe.
 
 | Branch | Wat de autobuild maakt | Workflow |
 | --- | --- | --- |
-| `main` | alleen de broncode (geen pakket) | — |
+| `main` | alle vier de pakketten, samen in één release | `release-all.yml` |
 | `windows` | `RoomCraft NL Setup.exe` (Windows 10/11, x64) | `build-windows.yml` |
 | `macos` | `.dmg` + `.zip` (macOS, Apple Silicon) | `build-macos.yml` |
-| `linux` | `.AppImage` + `.tar.gz` (Linux, x64) | `build-linux.yml` |
+| `linux` | `.AppImage` (Linux, x64) | `build-linux.yml` |
 | `android` | `.apk` (RoomCraft-client voor een RoomCraft-server) | `build-android.yml` |
 
-Elke workflow draait bij een push naar zijn eigen branch en via *Run workflow*.
-Een tag `v*` bouwt hetzelfde pakket en hangt het aan een GitHub-release. De
-versie komt uit de tag; zonder tag is het de versie uit `package.json` met
-`-dev.<run_number>`.
+Alle releases komen van `main`, via `release-all.yml`:
+
+* **Een tag `v*` naar `main` pushen** bouwt op de vier platformbranches alle
+  vier de pakketten en hangt ze aan één GitHub-release met die tag. De versie
+  is de tag zonder `v`: `v1.2.0` wordt `1.2.0`.
+* **Run workflow** op `main` bouwt hetzelfde. Met *publish* aan komt er een
+  release met dezelfde naam; zonder *version* is de versie
+  `<package.json>-dev.<run_number>`.
+
+De workflows op de platformbranches starten alleen bij een push naar hun eigen
+branch en leveren dan een artifact, geen release. Een tag of handmatige run op
+zo'n branch doet niets: GitHub voert een workflow alleen uit vanaf de default
+branch, dus `main` is het startpunt voor elke build en elke release.
 
 De desktoppakketten bundelen Node.js, PostgreSQL en de productie-dependencies,
 zodat de doelcomputer niets hoeft te installeren. De Android-app is een
