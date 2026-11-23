@@ -51,3 +51,17 @@ android {
         targetCompatibility JavaVersion.VERSION_17
     }
 }
+
+// The APK ships the complete web app in src/main/assets/web. Without it the
+// package would be the old client that needs a RoomCraft server, so refuse to
+// build a release that does not contain the interface.
+def roomcraftBundledApp = file('src/main/assets/web/index.html')
+tasks.matching { it.name == 'preBuild' }.configureEach {
+    doFirst {
+        if (!roomcraftBundledApp.exists()) {
+            throw new GradleException(
+                'De webapp ontbreekt in android/app/src/main/assets/web. Bouw hem met ' +
+                'VITE_OFFLINE=1 npm run build en kopieer dist/ naar die map (zie README).')
+        }
+    }
+}

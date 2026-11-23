@@ -50,6 +50,25 @@ jobs:
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      # The APK is the complete app, not a client for a server: build the real
+      # interface with the offline store and ship it in assets/web.
+      - name: Bundle the web app into the APK
+        env:
+          VITE_OFFLINE: '1'
+        run: |
+          set -euo pipefail
+          npm ci --no-audit --no-fund
+          npm run build
+          rm -rf android/app/src/main/assets/web
+          mkdir -p android/app/src/main/assets
+          cp -r dist android/app/src/main/assets/web
+          test -f android/app/src/main/assets/web/index.html
+
       - name: Prepare the release signing key
         id: signing
         env:
@@ -100,6 +119,26 @@ jobs:
           gradle -p android assembleRelease \
             -PversionName="$VERSION" \
             -PversionCode="${GITHUB_RUN_NUMBER}"
+
+      - name: Check that the APK contains the complete app
+        run: |
+          set -euo pipefail
+          apk="$(ls android/app/build/outputs/apk/release/app-release*.apk | head -n 1)"
+          listing="$(unzip -l "$apk")"
+          if ! grep -q 'assets/web/index.html' <<<"$listing"; then
+            echo "::error::De APK bevat de webapp niet (assets/web/index.html ontbreekt)."
+            exit 1
+          fi
+          if ! grep -Eq 'assets/web/assets/[^/]+\.js' <<<"$listing"; then
+            echo "::error::De APK bevat geen gebundelde JavaScript-bundel."
+            exit 1
+          fi
+          size="$(stat -c%s "$apk")"
+          echo "APK-grootte: $((size / 1024)) kB"
+          if (( size < 1000000 )); then
+            echo "::error::De APK is maar $((size / 1024)) kB; de volledige app hoort erin te zitten."
+            exit 1
+          fi
 
       - name: Check that the APK is signed with the release key
         env:

@@ -1,4 +1,8 @@
-import { RETAILER_ENV } from './env';
+import {
+  RETAILER_CATALOG_NOTE,
+  RETAILER_DEFINITIONS,
+  type RetailerDefinition,
+} from '../shared/retailers';
 import type { Product, RetailerStatus } from '../shared/types';
 
 /**
@@ -56,21 +60,9 @@ export interface RetailerAdapter {
   fetchProducts(): Promise<Product[]>;
 }
 
-interface AdapterConfig {
-  id: string;
-  name: string;
-  docsUrl: string;
-  feed: RetailerStatus['feed'];
-  envPrefixKey: string;
-}
-
-const CATALOG_URL_NOTE =
-  'Live koppeling vereist een productfeed uit een handelsovereenkomst. Zonder feed toont RoomCraft alleen de gelabelde democatalogus.';
-
-function createAdapter(config: AdapterConfig): RetailerAdapter {
-  const envNames = RETAILER_ENV[config.envPrefixKey];
-  const feedUrl = envNames ? process.env[envNames.feedUrl]?.trim() : '';
-  const apiKey = envNames ? process.env[envNames.apiKey]?.trim() : '';
+function createAdapter(config: RetailerDefinition): RetailerAdapter {
+  const feedUrl = process.env[config.feedUrlEnv]?.trim() ?? '';
+  const apiKey = process.env[config.apiKeyEnv]?.trim() ?? '';
   const isConfigured = Boolean(feedUrl);
 
   return {
@@ -88,7 +80,7 @@ function createAdapter(config: AdapterConfig): RetailerAdapter {
         feed: config.feed,
         message: isConfigured
           ? 'Feed-URL gevonden. Synchronisatie is beschikbaar; controleer de leveringsvoorwaarden van de retailer.'
-          : `${CATALOG_URL_NOTE} Stel ${envNames?.feedUrl ?? 'de feed-URL'} in om te koppelen.`,
+          : `${RETAILER_CATALOG_NOTE} Stel ${config.feedUrlEnv} in om te koppelen.`,
         docsUrl: config.docsUrl,
         lastSyncAt: null,
         productCount: 0,
@@ -114,7 +106,7 @@ function createAdapter(config: AdapterConfig): RetailerAdapter {
   };
 }
 
-function mapFeedItem(config: AdapterConfig, item: RetailerFeedItem): Product {
+function mapFeedItem(config: RetailerDefinition, item: RetailerFeedItem): Product {
   return {
     id: `${config.id}:${item.id}`,
     sku: item.sku,
@@ -142,43 +134,8 @@ function mapFeedItem(config: AdapterConfig, item: RetailerFeedItem): Product {
   };
 }
 
-export const retailerAdapters: RetailerAdapter[] = [
-  createAdapter({
-    id: 'ikea_nl',
-    name: 'IKEA Nederland',
-    docsUrl: 'https://www.ikea.com/nl/nl/',
-    feed: 'product-api',
-    envPrefixKey: 'ikea_nl',
-  }),
-  createAdapter({
-    id: 'leenbakker',
-    name: 'Leen Bakker',
-    docsUrl: 'https://www.leenbakker.nl/',
-    feed: 'product-feed',
-    envPrefixKey: 'leenbakker',
-  }),
-  createAdapter({
-    id: 'kwantum',
-    name: 'Kwantum',
-    docsUrl: 'https://www.kwantum.nl/',
-    feed: 'product-feed',
-    envPrefixKey: 'kwantum',
-  }),
-  createAdapter({
-    id: 'praxis',
-    name: 'Praxis',
-    docsUrl: 'https://www.praxis.nl/',
-    feed: 'product-feed',
-    envPrefixKey: 'praxis',
-  }),
-  createAdapter({
-    id: 'goossens',
-    name: 'Goossens',
-    docsUrl: 'https://www.goossens.nl/',
-    feed: 'product-feed',
-    envPrefixKey: 'goossens',
-  }),
-];
+/** One adapter per Dutch shop in the shared list; see `shared/retailers.ts`. */
+export const retailerAdapters: RetailerAdapter[] = RETAILER_DEFINITIONS.map(createAdapter);
 
 export const DEMO_RETAILER: RetailerStatus = {
   id: 'demo-showroom',

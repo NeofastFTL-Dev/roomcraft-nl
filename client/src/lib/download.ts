@@ -1,5 +1,31 @@
+/** File-saving bridge implemented by the Android shell (MainActivity). */
+interface RoomCraftNative {
+  saveFile(name: string, base64: string, mime: string): void;
+}
+
+declare global {
+  interface Window {
+    RoomCraftNative?: RoomCraftNative;
+  }
+}
+
 export function downloadFile(filename: string, content: Blob | string, type = 'text/plain'): void {
   const blob = typeof content === 'string' ? new Blob([content], { type: `${type};charset=utf-8` }) : content;
+
+  // A WebView cannot follow a blob download, so the bundled app hands the bytes
+  // to native code, which writes them to the Download folder.
+  const native = window.RoomCraftNative;
+  if (native) {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = String(reader.result ?? '');
+      const comma = result.indexOf(',');
+      native.saveFile(filename, comma === -1 ? '' : result.slice(comma + 1), type);
+    };
+    reader.readAsDataURL(blob);
+    return;
+  }
+
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;

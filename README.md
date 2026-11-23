@@ -18,7 +18,7 @@ platformbranch voegt het pakket en de autobuild voor dat platform toe.
 | `windows` | `RoomCraft NL Setup.exe` (Windows 10/11, x64) | `build-windows.yml` |
 | `macos` | `.dmg` + `.zip` (macOS, Apple Silicon) | `build-macos.yml` |
 | `linux` | `.AppImage` (Linux, x64) | `build-linux.yml` |
-| `android` | `.apk` (RoomCraft-client voor een RoomCraft-server) | `build-android.yml` |
+| `android` | `.apk` (complete app, werkt offline op het toestel) | `build-android.yml` |
 
 Alle releases komen van `main`, via `release-all.yml`:
 
@@ -42,9 +42,9 @@ zo'n branch doet niets: GitHub voert een workflow alleen uit vanaf de default
 branch, dus `main` is het startpunt voor elke build en elke release.
 
 De desktoppakketten bundelen Node.js, PostgreSQL en de productie-dependencies,
-zodat de doelcomputer niets hoeft te installeren. De Android-app is een
-WebView-client: hij opent de interface van een RoomCraft-server (desktop of
-LAN) en vraagt eenmalig om het adres.
+zodat de doelcomputer niets hoeft te installeren. De Android-APK bundelt de
+gebouwde interface zelf en bewaart ontwerpen op het toestel, dus hij werkt
+zonder server en zonder netwerk.
 
 ---
 
@@ -184,15 +184,27 @@ Zie `installer/README.md` voor details en de stille installatie (`/S`).
 
 ## Android-pakket (branch `android`)
 
-De planner zelf draait op de computer (PostgreSQL + Express); de Android-app is
-de client. Bij de eerste start vul je het adres van de RoomCraft-server in
-(bijvoorbeeld `http://192.168.1.20:41731`); dat adres wordt onthouden en is via
-het menu te wijzigen.
+De APK bevat de complete app: dezelfde interface als de Windows-versie, gebundeld
+in `android/app/src/main/assets/web`. Er is geen RoomCraft-server, desktop-app of
+internetverbinding nodig. De WebView laadt de bundel van een in-app origin
+(`https://appassets.androidplatform.net`); projecten en versies staan op het
+toestel (IndexedDB) en exports gaan naar `Download/RoomCraft NL`. Er zijn geen
+accounts: net als de desktopversie werkt de app met één lokale gebruiker. De
+catalogus is de gelabelde democatalogus; winkelkoppelingen vereisen een server en
+blijven in de app daarom `niet gekoppeld`.
 
-`gradle -p android assembleRelease` bouwt de ondertekende release-APK
-(`android/app/build/outputs/apk/release/app-release.apk`); de autobuild uploadt
-hem als `RoomCraft-NL-<versie>-android.apk`. Er worden geen debug-APK's meer
-uitgebracht.
+Lokaal bouwen:
+
+```bash
+VITE_OFFLINE=1 npm run build
+rm -rf android/app/src/main/assets/web && cp -r dist android/app/src/main/assets/web
+gradle -p android assembleRelease
+```
+
+De autobuild doet hetzelfde en weigert een APK zonder `assets/web/index.html` of
+met een verdacht kleine omvang; ook `assembleRelease` zonder gebundelde app stopt
+met een duidelijke fout. De APK wordt geüpload als
+`RoomCraft-NL-<versie>-android.apk`; er worden geen debug-APK's uitgebracht.
 
 ### Ondertekening
 
@@ -234,12 +246,16 @@ Lokaal met dezelfde sleutel bouwen: zet `ANDROID_KEYSTORE_PATH`,
 ## Winkels koppelen
 
 Er is bewust **geen** scraping. Elke winkel heeft een adapter in
-`server/retailers.ts` die pas actief wordt met een productfeed uit een
-handelsovereenkomst:
+`server/retailers.ts` (de lijst staat in `shared/retailers.ts`) die pas actief
+wordt met een productfeed uit een handelsovereenkomst. Aangesloten: IKEA
+Nederland, bol.com, Leen Bakker, Kwantum, Praxis, Goossens, fonQ, Wehkamp, HEMA,
+Blokker, Seats and Sofas en Pronto Wonen.
 
 ```env
 IKEA_NL_FEED_URL=
 IKEA_NL_API_KEY=
+BOL_FEED_URL=
+BOL_API_KEY=
 LEENBAKKER_FEED_URL=
 LEENBAKKER_API_KEY=
 KWANTUM_FEED_URL=
@@ -248,6 +264,18 @@ PRAXIS_FEED_URL=
 PRAXIS_API_KEY=
 GOOSSENS_FEED_URL=
 GOOSSENS_API_KEY=
+FONQ_FEED_URL=
+FONQ_API_KEY=
+WEHKAMP_FEED_URL=
+WEHKAMP_API_KEY=
+HEMA_FEED_URL=
+HEMA_API_KEY=
+BLOKKER_FEED_URL=
+BLOKKER_API_KEY=
+SEATS_EN_SOFAS_FEED_URL=
+SEATS_EN_SOFAS_API_KEY=
+PRONTO_WONEN_FEED_URL=
+PRONTO_WONEN_API_KEY=
 ```
 
 Zonder feed blijft de winkel `not_configured` en toont de app dat eerlijk. Het
