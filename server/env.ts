@@ -34,10 +34,3 @@ export const env = {
   sessionDays: 7,
 };
 
-export const RETAILER_ENV: Record<string, { feedUrl: string; apiKey: string }> = {
-  ikea_nl: { feedUrl: 'IKEA_NL_FEED_URL', apiKey: 'IKEA_NL_API_KEY' },
-  leenbakker: { feedUrl: 'LEENBAKKER_FEED_URL', apiKey: 'LEENBAKKER_API_KEY' },
-  kwantum: { feedUrl: 'KWANTUM_FEED_URL', apiKey: 'KWANTUM_API_KEY' },
-  praxis: { feedUrl: 'PRAXIS_FEED_URL', apiKey: 'PRAXIS_API_KEY' },
-  goossens: { feedUrl: 'GOOSSENS_FEED_URL', apiKey: 'GOOSSENS_API_KEY' },
-};

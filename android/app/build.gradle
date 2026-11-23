@@ -1,0 +1,67 @@
+plugins {
+    id 'com.android.application'
+}
+
+def roomcraftVersionName = (findProperty('versionName') ?: '1.0.0').toString()
+def roomcraftVersionCode = (findProperty('versionCode') ?: '1').toInteger()
+
+// De release-APK wordt ondertekend met een echte releasesleutel uit de omgeving:
+// ANDROID_KEYSTORE_PATH, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS en
+// ANDROID_KEY_PASSWORD. Zonder die variabelen levert assembleRelease een
+// ongeondertekende APK op; de autobuild zorgt altijd voor een sleutel.
+def roomcraftKeystorePath = System.getenv('ANDROID_KEYSTORE_PATH')
+def roomcraftKeystore = roomcraftKeystorePath ? file(roomcraftKeystorePath) : null
+def roomcraftSignsRelease = roomcraftKeystore != null && roomcraftKeystore.exists()
+
+android {
+    namespace 'nl.roomcraft.app'
+    compileSdk 35
+    buildToolsVersion '34.0.0'
+
+    defaultConfig {
+        applicationId 'nl.roomcraft.app'
+        minSdk 24
+        targetSdk 35
+        versionCode roomcraftVersionCode
+        versionName roomcraftVersionName
+    }
+
+    signingConfigs {
+        release {
+            if (roomcraftSignsRelease) {
+                storeFile roomcraftKeystore
+                storePassword System.getenv('ANDROID_KEYSTORE_PASSWORD')
+                keyAlias System.getenv('ANDROID_KEY_ALIAS')
+                keyPassword System.getenv('ANDROID_KEY_PASSWORD')
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            if (roomcraftSignsRelease) {
+                signingConfig signingConfigs.release
+            }
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+// The APK ships the complete web app in src/main/assets/web. Without it the
+// package would be the old client that needs a RoomCraft server, so refuse to
+// build a release that does not contain the interface.
+def roomcraftBundledApp = file('src/main/assets/web/index.html')
+tasks.matching { it.name == 'preBuild' }.configureEach {
+    doFirst {
+        if (!roomcraftBundledApp.exists()) {
+            throw new GradleException(
+                'De webapp ontbreekt in android/app/src/main/assets/web. Bouw hem met ' +
+                'VITE_OFFLINE=1 npm run build en kopieer dist/ naar die map (zie README).')
+        }
+    }
+}

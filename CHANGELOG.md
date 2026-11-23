@@ -3,6 +3,31 @@
 All notable changes to RoomCraft NL are documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), semantic versioning.
 
+## [Unreleased]
+
+### Changed
+
+* **Android is now the complete app.** The APK bundles the built interface in
+  `assets/web` and serves it from an in-app origin, so it no longer needs a
+  RoomCraft server on the LAN. Projects, versions and thumbnails are stored on
+  the device (IndexedDB); the 2D/3D editor, catalog, fit checker, budget, design
+  assistant, import and PNG/JSON/CSV export all work offline. Exports go to
+  `Download/RoomCraft NL` through a native bridge, and importing a design uses
+  the system file picker. The build refuses an APK without the bundled app.
+* **More Dutch shops.** bol.com, fonQ, Wehkamp, HEMA, Blokker, Seats and Sofas
+  and Pronto Wonen join IKEA, Leen Bakker, Kwantum, Praxis and Goossens. The
+  shop list now lives in `shared/retailers.ts`, shared by the server and the
+  offline app; each stays `niet gekoppeld` until a product feed is configured.
+
+### Fixed
+
+* **Saving in the Android app waits for the IndexedDB commit.** The app used to
+  report "opgeslagen" as soon as the write request succeeded, while the
+  transaction was still open; reloading or closing the app right after could
+  abort it and the new project was gone. Projects, versions and thumbnails now
+  survive reloads and restarts, and a unit test fails if a save resolves before
+  the commit again.
+
 ## [1.0.0] — 2026-11-20
 
 First complete, runnable build of RoomCraft NL.

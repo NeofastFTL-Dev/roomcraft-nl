@@ -5,16 +5,10 @@ import type {
   Product,
   RetailerStatus,
 } from '@shared/types';
+import { localApi } from '@/local/api';
+import { ApiError } from './apiError';
 
-export class ApiError extends Error {
-  constructor(
-    public readonly status: number,
-    message: string,
-    public readonly details?: unknown,
-  ) {
-    super(message);
-  }
-}
+export { ApiError };
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const response = await fetch(`/api${path}`, {
@@ -74,7 +68,7 @@ export interface ProposalResponse {
   proposals: LayoutProposal[];
 }
 
-export const api = {
+const remoteApi = {
   me: () => request<{ user: User | null; desktop?: boolean }>('/auth/me'),
   login: (email: string, password: string) =>
     request<{ user: User }>('/auth/login', {
@@ -131,3 +125,11 @@ export const api = {
   suggest: (body: { design: DesignDoc; brief: DesignBrief }) =>
     request<ProposalResponse>('/ai/suggest', { method: 'POST', body: JSON.stringify(body) }),
 };
+
+export type ApiClient = typeof remoteApi;
+
+/**
+ * The bundled Android app has no server: `VITE_OFFLINE=1` swaps the HTTP client
+ * for the on-device store. Every other build keeps using the Express API.
+ */
+export const api: ApiClient = import.meta.env.VITE_OFFLINE === '1' ? localApi : remoteApi;

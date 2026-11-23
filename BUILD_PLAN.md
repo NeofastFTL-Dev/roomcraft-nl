@@ -78,7 +78,7 @@ roomcraft-nl/
 ├─ server/
 │  ├─ app.ts, index.ts, env.ts, db.ts, auth.ts
 │  ├─ routes/                    auth, projects, catalog, ai
-│  ├─ retailers.ts               adapter interface + 5 NL connectors
+│  ├─ retailers.ts               adapter interface + 12 NL connectors
 │  └─ generated/prisma/          generated client (not committed)
 ├─ shared/                       the domain package used by both sides
 │  ├─ types.ts, geometry.ts, fit.ts, budget.ts, planner.ts

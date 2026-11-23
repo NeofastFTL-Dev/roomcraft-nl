@@ -18,7 +18,7 @@ platformbranch voegt het pakket en de autobuild voor dat platform toe.
 | `windows` | `RoomCraft NL Setup.exe` (Windows 10/11, x64) | `build-windows.yml` |
 | `macos` | `.dmg` + `.zip` (macOS, Apple Silicon) | `build-macos.yml` |
 | `linux` | `.AppImage` (Linux, x64) | `build-linux.yml` |
-| `android` | `.apk` (RoomCraft-client voor een RoomCraft-server) | `build-android.yml` |
+| `android` | `.apk` (complete app, werkt offline op het toestel) | `build-android.yml` |
 
 Alle releases komen van `main`, via `release-all.yml`:
 
@@ -42,9 +42,9 @@ zo'n branch doet niets: GitHub voert een workflow alleen uit vanaf de default
 branch, dus `main` is het startpunt voor elke build en elke release.
 
 De desktoppakketten bundelen Node.js, PostgreSQL en de productie-dependencies,
-zodat de doelcomputer niets hoeft te installeren. De Android-app is een
-WebView-client: hij opent de interface van een RoomCraft-server (desktop of
-LAN) en vraagt eenmalig om het adres.
+zodat de doelcomputer niets hoeft te installeren. De Android-APK bundelt de
+gebouwde interface zelf en bewaart ontwerpen op het toestel, dus hij werkt
+zonder server en zonder netwerk.
 
 ---
 
@@ -182,15 +182,80 @@ staan. Alleen met `/PURGEDATA` worden de database en ontwerpen gewist.
 
 Zie `installer/README.md` voor details en de stille installatie (`/S`).
 
+## Android-pakket (branch `android`)
+
+De APK bevat de complete app: dezelfde interface als de Windows-versie, gebundeld
+in `android/app/src/main/assets/web`. Er is geen RoomCraft-server, desktop-app of
+internetverbinding nodig. De WebView laadt de bundel van een in-app origin
+(`https://appassets.androidplatform.net`); projecten en versies staan op het
+toestel (IndexedDB) en exports gaan naar `Download/RoomCraft NL`. Er zijn geen
+accounts: net als de desktopversie werkt de app met één lokale gebruiker. De
+catalogus is de gelabelde democatalogus; winkelkoppelingen vereisen een server en
+blijven in de app daarom `niet gekoppeld`.
+
+Lokaal bouwen:
+
+```bash
+VITE_OFFLINE=1 npm run build
+rm -rf android/app/src/main/assets/web && cp -r dist android/app/src/main/assets/web
+gradle -p android assembleRelease
+```
+
+De autobuild doet hetzelfde en weigert een APK zonder `assets/web/index.html` of
+met een verdacht kleine omvang; ook `assembleRelease` zonder gebundelde app stopt
+met een duidelijke fout. De APK wordt geüpload als
+`RoomCraft-NL-<versie>-android.apk`; er worden geen debug-APK's uitgebracht.
+
+### Ondertekening
+
+De release-APK wordt ondertekend met de keystore uit vier repository-secrets:
+
+| Secret | Inhoud |
+| --- | --- |
+| `ANDROID_KEYSTORE_BASE64` | de keystore (PKCS12 of JKS) als base64 |
+| `ANDROID_KEYSTORE_PASSWORD` | het wachtwoord van de keystore |
+| `ANDROID_KEY_ALIAS` | de alias van de sleutel in de keystore |
+| `ANDROID_KEY_PASSWORD` | het wachtwoord van de sleutel (meestal gelijk aan het keystore-wachtwoord) |
+
+```bash
+gh secret set ANDROID_KEYSTORE_BASE64 < <(base64 -w0 release.keystore)
+gh secret set ANDROID_KEYSTORE_PASSWORD
+gh secret set ANDROID_KEY_ALIAS
+gh secret set ANDROID_KEY_PASSWORD
+```
+
+Ontbreken die secrets, dan **faalt** de build: een release-APK moet altijd met
+de vaste releasesleutel zijn ondertekend, anders is hij later niet in-place bij
+te werken. De autobuild vergelijkt daarnaast de SHA-256-vingerafdruk van het
+APK-certificaat met de vaste waarde `EXPECTED_CERT_SHA256` in
+`.github/workflows/build-android.yml` en faalt bij een andere sleutel. Wissel je
+van keystore, werk dan die vingerafdruk mee bij. Alleen een push naar de `android`-branch (een proefbuild, geen
+release) gebruikt bij ontbrekende secrets een tijdelijke sleutel en meldt dat
+als waarschuwing. Een eigen keystore maak je met:
+
+```bash
+keytool -genkeypair -keystore release.keystore -storetype PKCS12 \
+  -alias roomcraft -keyalg RSA -keysize 3072 -validity 10000 \
+  -dname "CN=RoomCraft NL, O=RoomCraft NL, C=NL"
+```
+
+Lokaal met dezelfde sleutel bouwen: zet `ANDROID_KEYSTORE_PATH`,
+`ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` en `ANDROID_KEY_PASSWORD` vóór
+`gradle -p android assembleRelease`.
+
 ## Winkels koppelen
 
 Er is bewust **geen** scraping. Elke winkel heeft een adapter in
-`server/retailers.ts` die pas actief wordt met een productfeed uit een
-handelsovereenkomst:
+`server/retailers.ts` (de lijst staat in `shared/retailers.ts`) die pas actief
+wordt met een productfeed uit een handelsovereenkomst. Aangesloten: IKEA
+Nederland, bol.com, Leen Bakker, Kwantum, Praxis, Goossens, fonQ, Wehkamp, HEMA,
+Blokker, Seats and Sofas en Pronto Wonen.
 
 ```env
 IKEA_NL_FEED_URL=
 IKEA_NL_API_KEY=
+BOL_FEED_URL=
+BOL_API_KEY=
 LEENBAKKER_FEED_URL=
 LEENBAKKER_API_KEY=
 KWANTUM_FEED_URL=
@@ -199,6 +264,18 @@ PRAXIS_FEED_URL=
 PRAXIS_API_KEY=
 GOOSSENS_FEED_URL=
 GOOSSENS_API_KEY=
+FONQ_FEED_URL=
+FONQ_API_KEY=
+WEHKAMP_FEED_URL=
+WEHKAMP_API_KEY=
+HEMA_FEED_URL=
+HEMA_API_KEY=
+BLOKKER_FEED_URL=
+BLOKKER_API_KEY=
+SEATS_EN_SOFAS_FEED_URL=
+SEATS_EN_SOFAS_API_KEY=
+PRONTO_WONEN_FEED_URL=
+PRONTO_WONEN_API_KEY=
 ```
 
 Zonder feed blijft de winkel `not_configured` en toont de app dat eerlijk. Het
