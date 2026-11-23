@@ -10,6 +10,11 @@ on:
         type: string
         required: false
         default: ''
+      ref:
+        description: 'Commit om te bouwen (leeg = de branch waarop dit draait)'
+        type: string
+        required: false
+        default: ''
 
 concurrency:
   group: build-windows-${{ github.workflow }}-${{ github.ref }}
@@ -21,7 +26,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: windows
+          ref: ${{ inputs.ref || 'windows' }}
 
       - uses: actions/setup-node@v4
         with:
