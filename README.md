@@ -166,19 +166,20 @@ staan. Alleen met `/PURGEDATA` worden de database en ontwerpen gewist.
 
 Zie `installer/README.md` voor details en de stille installatie (`/S`).
 
-## Linux-pakket (branch `linux`)
+## macOS-pakket (branch `macos`)
 
 ```bash
 npm ci
 node desktop/prepare-desktop.mjs
-npx electron-builder --linux
+npx electron-builder --mac
 ```
 
-Dat levert `release/RoomCraft-NL-<versie>-linux-x86_64.AppImage`: één
-zelfstandig bestand met Node.js 24, PostgreSQL 18, Electron en de
-productie-dependencies. De app start de database en server lokaal en bewaart
-gegevens in `~/.config/RoomCraft NL`. De autobuild doet hetzelfde en uploadt de
-AppImage.
+Dat levert `release/RoomCraft-NL-<versie>-mac-arm64.dmg` en een `.zip` met
+dezelfde app: Node.js 24, PostgreSQL 18, Electron en de productie-dependencies
+zitten erin. De app start de database en server lokaal en bewaart gegevens in
+`~/Library/Application Support/RoomCraft NL`. De build is niet ondertekend; open
+de app de eerste keer via rechtsklik → *Open*. De autobuild draait op een
+Apple Silicon-runner en uploadt beide bestanden.
 
 ## Winkels koppelen
 
