@@ -41,6 +41,9 @@ jobs:
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
 
+      - name: Download Electron runtime
+        run: node node_modules/electron/install.js
+
       - name: Generate Prisma client
         env:
           DATABASE_URL: postgresql://roomcraft:roomcraft@127.0.0.1:5432/roomcraft?schema=public
