@@ -166,6 +166,14 @@ staan. Alleen met `/PURGEDATA` worden de database en ontwerpen gewist.
 
 Zie `installer/README.md` voor details en de stille installatie (`/S`).
 
+## Android-pakket (branch `android`)
+
+De planner zelf draait op de computer (PostgreSQL + Express); de Android-app is
+de client. `gradle -p android assembleDebug` bouwt de APK. Bij de eerste start
+vul je het adres van de RoomCraft-server in (bijvoorbeeld
+`http://192.168.1.20:41731`); dat adres wordt onthouden en is via het menu te
+wijzigen. De autobuild uploadt `RoomCraft-NL-<versie>-android.apk`.
+
 ## Winkels koppelen
 
 Er is bewust **geen** scraping. Elke winkel heeft een adapter in

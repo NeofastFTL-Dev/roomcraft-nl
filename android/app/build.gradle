@@ -1,0 +1,31 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'nl.roomcraft.app'
+    compileSdk 35
+    buildToolsVersion '34.0.0'
+
+    defaultConfig {
+        applicationId 'nl.roomcraft.app'
+        minSdk 24
+        targetSdk 35
+        versionCode (findProperty('versionCode') ?: '1').toInteger()
+        versionName (findProperty('versionName') ?: '1.0.0').toString()
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            // The autobuild ships an installable APK, so sign release with the
+            // debug key instead of requiring a keystore.
+            signingConfig signingConfigs.debug
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
