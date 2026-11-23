@@ -111,6 +111,7 @@ jobs:
     name: Android
     needs: [version, pins]
     uses: NeofastFTL-Dev/roomcraft-nl/.github/workflows/build-android.yml@android
+    secrets: inherit
     with:
       version: ${{ needs.version.outputs.value }}
       ref: ${{ needs.pins.outputs.android }}
