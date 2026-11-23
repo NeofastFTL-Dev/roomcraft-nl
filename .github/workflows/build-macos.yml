@@ -3,11 +3,6 @@ name: Build macOS
 on:
   push:
     branches: [macos]
-    tags: ['v*']
-  workflow_dispatch:
-
-permissions:
-  contents: write
 
 concurrency:
   group: build-macos-${{ github.ref }}
@@ -30,11 +25,7 @@ jobs:
         id: version
         run: |
           set -euo pipefail
-          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
-            version="${GITHUB_REF#refs/tags/v}"
-          else
-            version="$(node -p "require('./package.json').version")-dev.${GITHUB_RUN_NUMBER}"
-          fi
+          version="$(node -p "require('./package.json').version")-dev.${GITHUB_RUN_NUMBER}"
           npm version "$version" --no-git-tag-version --allow-same-version > /dev/null
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
@@ -59,12 +50,3 @@ jobs:
             release/*.dmg
             release/*.zip
           if-no-files-found: error
-
-      - name: Publish release
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            release/*.dmg
-            release/*.zip
-          generate_release_notes: true
