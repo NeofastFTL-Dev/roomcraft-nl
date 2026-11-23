@@ -1,0 +1,40 @@
+appId: nl.roomcraft.desktop
+productName: RoomCraft NL
+artifactName: RoomCraft-NL-${version}-${os}-${arch}.${ext}
+copyright: RoomCraft NL
+
+directories:
+  output: release
+  buildResources: desktop
+
+files:
+  - desktop/main.cjs
+  - desktop/icon.png
+
+extraResources:
+  - from: desktop/staging/app
+    to: app
+  - from: runtime
+    to: runtime
+
+asar: true
+compression: normal
+
+mac:
+  target:
+    - dmg
+    - zip
+  category: public.app-category.graphics-design
+  identity: null
+  hardenedRuntime: false
+  gatekeeperAssess: false
+
+linux:
+  target:
+    - AppImage
+  category: Graphics
+  icon: desktop/icon.png
+  synopsis: 2D/3D interieurplanner voor de Nederlandse markt
+  description: >-
+    Teken je kamer op ware grootte, richt hem in 2D en 3D synchroon in,
+    controleer pasvorm en budget en exporteer je ontwerp. Alles lokaal.

@@ -17,7 +17,7 @@ platformbranch voegt het pakket en de autobuild voor dat platform toe.
 | `main` | alleen de broncode (geen pakket) | — |
 | `windows` | `RoomCraft NL Setup.exe` (Windows 10/11, x64) | `build-windows.yml` |
 | `macos` | `.dmg` + `.zip` (macOS, Apple Silicon) | `build-macos.yml` |
-| `linux` | `.AppImage` + `.tar.gz` (Linux, x64) | `build-linux.yml` |
+| `linux` | `.AppImage` (Linux, x64) | `build-linux.yml` |
 | `android` | `.apk` (RoomCraft-client voor een RoomCraft-server) | `build-android.yml` |
 
 Elke workflow draait bij een push naar zijn eigen branch en via *Run workflow*.
@@ -165,6 +165,20 @@ Ook een stille verwijdering (`RoomCraft.exe --uninstall /S`) laat de gegevens
 staan. Alleen met `/PURGEDATA` worden de database en ontwerpen gewist.
 
 Zie `installer/README.md` voor details en de stille installatie (`/S`).
+
+## Linux-pakket (branch `linux`)
+
+```bash
+npm ci
+node desktop/prepare-desktop.mjs
+npx electron-builder --linux
+```
+
+Dat levert `release/RoomCraft-NL-<versie>-linux-x86_64.AppImage`: één
+zelfstandig bestand met Node.js 24, PostgreSQL 18, Electron en de
+productie-dependencies. De app start de database en server lokaal en bewaart
+gegevens in `~/.config/RoomCraft NL`. De autobuild doet hetzelfde en uploadt de
+AppImage.
 
 ## Winkels koppelen
 

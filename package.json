@@ -3,6 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
+  "main": "desktop/main.cjs",
+  "author": "NeofastFTL-Dev",
   "description": "RoomCraft NL — 2D/3D room planner for Dutch furniture retailers",
   "scripts": {
     "dev": "concurrently -n api,web -c cyan,magenta \"npm:dev:api\" \"npm:dev:web\"",
@@ -16,7 +18,10 @@
     "typecheck": "tsc -p tsconfig.shared.json --noEmit && tsc -p tsconfig.server.json --noEmit && tsc -p tsconfig.client.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "desktop:prepare": "node desktop/prepare-desktop.mjs",
+    "desktop:linux": "electron-builder --linux",
+    "desktop:mac": "electron-builder --mac"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.10.1",
@@ -50,6 +55,7 @@
     "@vitejs/plugin-react": "^6.3.0",
     "concurrently": "^10.0.7",
     "electron": "^45.4.1",
+    "electron-builder": "^26.18.0",
     "embedded-postgres": "^18.7.0-beta.19",
     "prisma": "^7.10.1",
     "tsx": "^4.23.15",
