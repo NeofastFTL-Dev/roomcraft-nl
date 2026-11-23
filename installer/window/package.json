@@ -1,0 +1,8 @@
+{
+  "name": "roomcraft-desktop-window",
+  "productName": "RoomCraft NL",
+  "version": "1.0.0",
+  "private": true,
+  "description": "RoomCraft NL application window",
+  "main": "main.js"
+}

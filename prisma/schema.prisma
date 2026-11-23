@@ -1,0 +1,79 @@
+// RoomCraft NL — PostgreSQL schema (Prisma ORM 7).
+// The design document itself is stored as validated JSON because the room
+// geometry is a graph (walls <-> openings) that is always read as a whole.
+generator client {
+  provider     = "prisma-client"
+  output       = "../server/generated/prisma"
+  moduleFormat = "esm"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  name         String
+  passwordHash String
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  projects     Project[]
+}
+
+model Project {
+  id          String           @id @default(cuid())
+  userId      String
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  description String           @default("")
+  design      Json
+  thumbnail   String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  versions    ProjectVersion[]
+
+  @@index([userId, updatedAt])
+}
+
+model ProjectVersion {
+  id        String   @id @default(cuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  label     String
+  design    Json
+  createdAt DateTime @default(now())
+
+  @@index([projectId, createdAt])
+}
+
+model Product {
+  id            String   @id
+  sku           String   @unique
+  name          String
+  brand         String
+  retailerId    String
+  retailerName  String
+  category      String
+  priceCents    Int
+  currency      String   @default("EUR")
+  widthM        Float
+  depthM        Float
+  heightM       Float
+  color         String
+  materials     String[]
+  styles        String[]
+  modelUrl      String?
+  imageUrl      String?
+  dataSource    String   @default("demo")
+  externalUrl   String?
+  inStock       Boolean  @default(true)
+  deliveryWeeks Int      @default(3)
+  allowsOverlap Boolean  @default(false)
+  wallMounted   Boolean  @default(false)
+  tags          String[]
+  updatedAt     DateTime @updatedAt
+
+  @@index([retailerId])
+  @@index([category])
+}
