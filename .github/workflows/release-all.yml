@@ -5,6 +5,10 @@ name: Release all platforms
 # kan met "Run workflow". De builds zelf staan in de workflows van de
 # platformbranches; die worden hier herbruikt (workflow_call), zodat elke
 # build maar één keer bestaat.
+#
+# De job `pins` legt eerst de commit van elke platformbranch vast en geeft die
+# SHA aan de builds mee, zodat een release precies de code bevat die op dat
+# moment op de branches stond. De vier SHA's staan in de release-opmerkingen.
 
 on:
   push:
@@ -55,37 +59,65 @@ jobs:
           fi
           echo "value=$version" >> "$GITHUB_OUTPUT"
 
+  pins:
+    name: Platform commits
+    runs-on: ubuntu-latest
+    outputs:
+      windows: ${{ steps.resolve.outputs.windows }}
+      macos: ${{ steps.resolve.outputs.macos }}
+      linux: ${{ steps.resolve.outputs.linux }}
+      android: ${{ steps.resolve.outputs.android }}
+    steps:
+      - name: Resolve the platform commits
+        id: resolve
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          for platform in windows macos linux android; do
+            sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$platform" --jq .object.sha)"
+            if [[ ! "$sha" =~ ^[0-9a-f]{40}$ ]]; then
+              echo "Geen commit gevonden voor $platform" >&2
+              exit 1
+            fi
+            echo "$platform=$sha" >> "$GITHUB_OUTPUT"
+          done
+
   windows:
     name: Windows
-    needs: version
+    needs: [version, pins]
     uses: NeofastFTL-Dev/roomcraft-nl/.github/workflows/build-windows.yml@windows
     with:
       version: ${{ needs.version.outputs.value }}
+      ref: ${{ needs.pins.outputs.windows }}
 
   macos:
     name: macOS
-    needs: version
+    needs: [version, pins]
     uses: NeofastFTL-Dev/roomcraft-nl/.github/workflows/build-macos.yml@macos
     with:
       version: ${{ needs.version.outputs.value }}
+      ref: ${{ needs.pins.outputs.macos }}
 
   linux:
     name: Linux
-    needs: version
+    needs: [version, pins]
     uses: NeofastFTL-Dev/roomcraft-nl/.github/workflows/build-linux.yml@linux
     with:
       version: ${{ needs.version.outputs.value }}
+      ref: ${{ needs.pins.outputs.linux }}
 
   android:
     name: Android
-    needs: version
+    needs: [version, pins]
     uses: NeofastFTL-Dev/roomcraft-nl/.github/workflows/build-android.yml@android
     with:
       version: ${{ needs.version.outputs.value }}
+      ref: ${{ needs.pins.outputs.android }}
 
   release:
     name: Release
-    needs: [version, windows, macos, linux, android]
+    needs: [version, pins, windows, macos, linux, android]
     if: startsWith(github.ref, 'refs/tags/v') || inputs.publish
     runs-on: ubuntu-latest
     steps:
@@ -103,3 +135,12 @@ jobs:
           name: RoomCraft NL ${{ needs.version.outputs.value }}
           files: dist/*
           generate_release_notes: true
+          body: |
+            ## Platform commits
+
+            | Branch | Commit |
+            | --- | --- |
+            | windows | `${{ needs.pins.outputs.windows }}` |
+            | macos | `${{ needs.pins.outputs.macos }}` |
+            | linux | `${{ needs.pins.outputs.linux }}` |
+            | android | `${{ needs.pins.outputs.android }}` |
