@@ -137,10 +137,22 @@ jobs:
             echo "::error::De APK bevat geen gebundelde JavaScript-bundel."
             exit 1
           fi
-          size="$(stat -c%s "$apk")"
-          echo "APK-grootte: $((size / 1024)) kB"
-          if (( size < 1000000 )); then
-            echo "::error::De APK is maar $((size / 1024)) kB; de volledige app hoort erin te zitten."
+          # The APK is compressed: 1,7 MB JavaScript becomes roughly 0,5 MB in
+          # the zip. Check both the package and the uncompressed bundle so the
+          # old 10 kB WebView shell can never pass again.
+          package_size="$(stat -c%s "$apk")"
+          bundle_size="$(unzip -l "$apk" | awk '/assets\/web\/assets\/[^/]+\.js$/ {print $1; exit}')"
+          echo "APK-grootte: $((package_size / 1024)) kB, bundel: $((bundle_size / 1024)) kB"
+          if (( package_size < 200000 )); then
+            echo "::error::De APK is maar $((package_size / 1024)) kB; de volledige app hoort erin te zitten."
+            exit 1
+          fi
+          if [[ -z "$bundle_size" ]] || (( bundle_size < 500000 )); then
+            echo "::error::De JavaScript-bundel in de APK is te klein ($bundle_size bytes)."
+            exit 1
+          fi
+          if ! unzip -p "$apk" 'assets/web/assets/*.js' | grep -q 'Deze app werkt zonder server'; then
+            echo "::error::De APK bevat niet de offline versie van de app."
             exit 1
           fi
 
