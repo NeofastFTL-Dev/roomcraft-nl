@@ -29,8 +29,11 @@ Alle releases komen van `main`, via `release-all.yml`:
   release met dezelfde naam; zonder *version* is de versie
   `<package.json>-dev.<run_number>`.
 
-De workflows op de platformbranches starten alleen bij een push naar hun eigen
-branch en leveren dan een artifact, geen release. Een tag of handmatige run op
+De workflows op de platformbranches zijn herbruikbaar: `release-all.yml` roept
+ze aan met `uses: …/build-windows.yml@windows` (enzovoort), dus elke build
+bestaat maar één keer en de versie wordt één keer op `main` bepaald. Ze
+starten daarnaast alleen bij een push naar hun eigen branch en leveren dan een
+artifact, geen release. Een tag of handmatige run op
 zo'n branch doet niets: GitHub voert een workflow alleen uit vanaf de default
 branch, dus `main` is het startpunt voor elke build en elke release.
 
